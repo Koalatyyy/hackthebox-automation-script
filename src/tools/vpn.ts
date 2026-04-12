@@ -115,13 +115,25 @@ export async function vpnConnect(ovpnFile?: string): Promise<void> {
 }
 
 export async function vpnDisconnect(): Promise<void> {
-  const { stdout } = await wsl(['cat', PID_FILE]);
-  const pid = stdout.trim();
+  let pid = '';
+
+  const { stdout: pidFromFile } = await wsl(['cat', PID_FILE]);
+  pid = pidFromFile.trim();
 
   if (!pid) {
-    console.log('[vpn] No PID file found - VPN may not be running.');
-    clearState();
-    return;
+    if (!(await isTunUp())) {
+      console.log('[vpn] Not connected.');
+      clearState();
+      return;
+    }
+    // tun0 is up but no PID file — find the process directly
+    const { stdout: pgrepOut } = await wsl(['pgrep', '-x', 'openvpn']);
+    pid = pgrepOut.trim().split('\n')[0];
+    if (!pid) {
+      console.log('[vpn] tun0 is up but could not find openvpn process.');
+      clearState();
+      return;
+    }
   }
 
   console.log(`[vpn] Killing openvpn (PID ${pid})...`);
@@ -152,8 +164,8 @@ export async function vpnDownload(serverId?: number): Promise<string> {
 
   if (servers.length === 0) {
     console.error('[vpn] Could not retrieve server list from HTB API.');
-    console.error('[vpn] If you know your server ID, use: ctf vpn download --server <id>');
-    console.error('[vpn] Your server ID is in the ovpn download URL on hackthebox.com/access');
+    console.error('[vpn] Download your .ovpn file manually: app.hackthebox.com > Connect to HTB (top right) > OpenVPN > Download VPN');
+    console.error('[vpn] Then connect with: ctf vpn connect <file.ovpn>');
     process.exit(1);
   }
 
