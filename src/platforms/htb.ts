@@ -33,14 +33,16 @@ function loadApiKey(): string {
   process.exit(1);
 }
 
-async function htbRequest(method: string, endpoint: string, baseUrl = BASE_URL): Promise<unknown> {
+async function htbRequest(method: string, endpoint: string, baseUrl = BASE_URL, body?: unknown): Promise<unknown> {
   const apiKey = loadApiKey();
   const res = await fetch(`${baseUrl}${endpoint}`, {
     method,
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
   if (!res.ok) {
@@ -115,19 +117,14 @@ export interface Machine {
   retired: boolean;
 }
 
-export async function searchMachine(term: string): Promise<Machine[]> {
-  const data = await htbGet(`/machine/search?value=${encodeURIComponent(term)}`) as { data: Array<{ id: number; name: string; ip: string | null; difficultyText: string; retired: boolean }> };
-  return (data.data ?? []).map((m) => ({
-    id: m.id,
-    name: m.name,
-    ip: m.ip ?? null,
-    difficulty: m.difficultyText,
-    retired: m.retired,
-  }));
+export async function searchMachine(name: string): Promise<Machine> {
+  const data = await htbGet(`/machine/profile/${encodeURIComponent(name)}`, LABS_URL) as { info: { id: number; name: string; ip: string | null; difficultyText: string; retired: number } };
+  const m = data.info;
+  return { id: m.id, name: m.name, ip: m.ip ?? null, difficulty: m.difficultyText, retired: m.retired === 1 };
 }
 
 export async function spawnMachine(id: number): Promise<void> {
-  await htbRequest('POST', `/machine/play/${id}`);
+  await htbRequest('POST', '/vm/spawn', LABS_URL, { machine_id: id });
 }
 
 export async function getActiveMachine(): Promise<{ id: number; name: string; ip: string } | null> {

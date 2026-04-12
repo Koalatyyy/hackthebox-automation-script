@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { wsl, wslDetached, toWslPath } from './wsl';
 import { getVpnServers, downloadOvpn } from '../platforms/htb';
+import { confirm, select } from './prompt';
 
 // Common locations to search for .ovpn files
 const OVPN_SEARCH_DIRS = [
@@ -12,7 +13,7 @@ const OVPN_SEARCH_DIRS = [
   `C:\\Users\\${os.userInfo().username}\\Downloads`,
 ];
 
-function findOvpnFile(): string | null {
+async function findOvpnFile(): Promise<string | null> {
   for (const dir of OVPN_SEARCH_DIRS) {
     if (!fs.existsSync(dir)) continue;
     const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ovpn'));
@@ -22,10 +23,7 @@ function findOvpnFile(): string | null {
       return found;
     }
     if (files.length > 1) {
-      console.log(`[vpn] Multiple .ovpn files found in ${dir}:`);
-      files.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
-      console.log('[vpn] Specify one explicitly: ctf vpn connect <file>');
-      process.exit(1);
+      return select(`[vpn] Multiple .ovpn files found in ${dir}:`, files.map((f) => ({ label: f, value: path.join(dir, f) })));
     }
   }
   return null;
@@ -77,10 +75,11 @@ async function waitForTun(timeoutMs = 30000): Promise<string | null> {
 }
 
 export async function vpnConnect(ovpnFile?: string): Promise<void> {
-  const resolved = ovpnFile ?? findOvpnFile();
+  let resolved = ovpnFile ?? await findOvpnFile();
   if (!resolved) {
-    console.error('[vpn] No .ovpn file found. Download one with: ctf vpn download');
-    process.exit(1);
+    const yes = await confirm('[vpn] No .ovpn file found. Download one now?');
+    if (!yes) process.exit(0);
+    resolved = await vpnDownload();
   }
   if (!fs.existsSync(resolved)) {
     console.error(`[vpn] Config not found: ${resolved}`);
@@ -180,10 +179,10 @@ export async function vpnDownload(serverId?: number): Promise<string> {
   }
 
   if (!server) {
-    console.log('[vpn] Available servers:');
-    servers.forEach((s) => console.log(`  ${s.id}  ${s.friendly_name} (${s.location}) - ${s.current_clients} clients`));
-    console.log('\n[vpn] No assigned server found. Run with --server <id> to pick one.');
-    process.exit(1);
+    server = await select('[vpn] Select a server:', servers.map((s) => ({
+      label: `${s.friendly_name} (${s.location}) - ${s.current_clients} clients`,
+      value: s,
+    })));
   }
 
   console.log(`[vpn] Downloading config for: ${server.friendly_name}`);
