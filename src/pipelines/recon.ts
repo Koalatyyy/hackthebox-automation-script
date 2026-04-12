@@ -67,6 +67,10 @@ export async function runRecon(target: string, machineName: string): Promise<voi
 
   await Promise.all(tasks);
 
+  session.endTime = new Date().toISOString();
+  saveSession(session);
   generateSummary(session);
-  console.log('\n[recon] Done.');
+
+  const elapsed = Math.round((new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000);
+  console.log(`\n[recon] Done. (${Math.floor(elapsed / 60)}m ${elapsed % 60}s)`);
 }

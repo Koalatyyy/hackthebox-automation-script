@@ -32,11 +32,17 @@ export function saveSession(session: Session): void {
 }
 
 export function generateSummary(session: Session): void {
+  const end = session.endTime ?? new Date().toISOString();
+  const elapsedMs = new Date(end).getTime() - new Date(session.startTime).getTime();
+  const elapsed = `${Math.floor(elapsedMs / 60000)}m ${Math.round((elapsedMs % 60000) / 1000)}s`;
+
   const lines = [
     `# Recon Summary: ${session.machineName}`,
     ``,
     `**Target:** ${session.target}`,
     `**Started:** ${session.startTime}`,
+    `**Finished:** ${end}`,
+    `**Elapsed:** ${elapsed}`,
     ``,
     `## Open Ports`,
     ``,

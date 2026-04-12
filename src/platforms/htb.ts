@@ -106,3 +106,35 @@ export async function downloadOvpn(serverId: number, outPath: string): Promise<v
   const buf = await htbGetBinary(LABS_URL, `/access/ovpnfile/${serverId}/0`);
   fs.writeFileSync(outPath, buf);
 }
+
+export interface Machine {
+  id: number;
+  name: string;
+  ip: string | null;
+  difficulty: string;
+  retired: boolean;
+}
+
+export async function searchMachine(term: string): Promise<Machine[]> {
+  const data = await htbGet(`/machine/search?value=${encodeURIComponent(term)}`) as { data: Array<{ id: number; name: string; ip: string | null; difficultyText: string; retired: boolean }> };
+  return (data.data ?? []).map((m) => ({
+    id: m.id,
+    name: m.name,
+    ip: m.ip ?? null,
+    difficulty: m.difficultyText,
+    retired: m.retired,
+  }));
+}
+
+export async function spawnMachine(id: number): Promise<void> {
+  await htbRequest('POST', `/machine/play/${id}`);
+}
+
+export async function getActiveMachine(): Promise<{ id: number; name: string; ip: string } | null> {
+  const data = await htbGet('/machine/active') as { info: { id: number; name: string; ip: string } | null };
+  return data.info ?? null;
+}
+
+export async function stopMachine(id: number): Promise<void> {
+  await htbRequest('POST', `/machine/stop/${id}`);
+}

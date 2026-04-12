@@ -25,6 +25,14 @@ npm run dev -- recon <target-ip> --name <machine-name>
 node dist/cli/index.js recon <target-ip> --name <machine-name>
 ```
 
+## Git
+- Always end responses that modify code with ready-to-run git commands:
+  ```bash
+  git add <specific files>
+  git commit -m "Type: description"
+  git push
+  ```
+
 ## Conventions
 - Each tool wrapper in `src/tools/` streams output to stdout and writes raw file to session dir
 - nmap output is parsed from XML (`-oX`) into typed `Port[]`
