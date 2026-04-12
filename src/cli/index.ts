@@ -2,6 +2,22 @@
 import { Command } from 'commander';
 import { runRecon } from '../pipelines/recon';
 import { vpnConnect, vpnDisconnect, vpnStatus, vpnDownload } from '../tools/vpn';
+import { nikto } from '../tools/nikto';
+import { gobuster } from '../tools/gobuster';
+import { whatweb } from '../tools/whatweb';
+import { sqlmap } from '../tools/sqlmap';
+import { enum4linux } from '../tools/enum4linux';
+import { searchsploit } from '../tools/searchsploit';
+import type { Port } from '../types';
+
+function makePort(portNum: number, ssl: boolean): Port {
+  return {
+    number: portNum,
+    protocol: 'tcp',
+    state: 'open',
+    service: ssl || portNum === 443 ? 'https' : 'http',
+  };
+}
 
 const program = new Command();
 
@@ -49,6 +65,64 @@ vpn
   .description('Show current VPN connection status')
   .action(async () => {
     await vpnStatus();
+  });
+
+program
+  .command('nikto <target>')
+  .description('Web vulnerability scan')
+  .requiredOption('-p, --port <port>', 'Target port', parseInt)
+  .option('--ssl', 'Force SSL')
+  .option('-o, --out <dir>', 'Output directory', process.cwd())
+  .action(async (target: string, opts: { port: number; ssl: boolean; out: string }) => {
+    await nikto(target, makePort(opts.port, opts.ssl), opts.out);
+  });
+
+program
+  .command('gobuster <target>')
+  .description('Directory brute-force')
+  .requiredOption('-p, --port <port>', 'Target port', parseInt)
+  .option('--ssl', 'Force SSL')
+  .option('-w, --wordlist <path>', 'Wordlist path')
+  .option('-o, --out <dir>', 'Output directory', process.cwd())
+  .action(async (target: string, opts: { port: number; ssl: boolean; wordlist?: string; out: string }) => {
+    await gobuster(target, makePort(opts.port, opts.ssl), opts.out, opts.wordlist);
+  });
+
+program
+  .command('whatweb <target>')
+  .description('Web technology fingerprint')
+  .requiredOption('-p, --port <port>', 'Target port', parseInt)
+  .option('--ssl', 'Force SSL')
+  .option('-o, --out <dir>', 'Output directory', process.cwd())
+  .action(async (target: string, opts: { port: number; ssl: boolean; out: string }) => {
+    await whatweb(target, makePort(opts.port, opts.ssl), opts.out);
+  });
+
+program
+  .command('sqlmap <target>')
+  .description('SQL injection scan')
+  .requiredOption('-p, --port <port>', 'Target port', parseInt)
+  .option('--ssl', 'Force SSL')
+  .option('-o, --out <dir>', 'Output directory', process.cwd())
+  .action(async (target: string, opts: { port: number; ssl: boolean; out: string }) => {
+    await sqlmap(target, makePort(opts.port, opts.ssl), opts.out);
+  });
+
+program
+  .command('enum4linux <target>')
+  .description('SMB enumeration')
+  .option('-o, --out <dir>', 'Output directory', process.cwd())
+  .action(async (target: string, opts: { out: string }) => {
+    await enum4linux(target, opts.out);
+  });
+
+program
+  .command('searchsploit <query...>')
+  .description('Search exploit database by service/version')
+  .option('-o, --out <dir>', 'Output directory', process.cwd())
+  .action(async (query: string[], opts: { out: string }) => {
+    const port = { number: 0, protocol: 'tcp' as const, state: 'open' as const, service: query.join(' '), product: query[0], version: query.slice(1).join(' ') || undefined };
+    await searchsploit([port], opts.out);
   });
 
 program.parse();
