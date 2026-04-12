@@ -2,6 +2,9 @@ import { nmapQuick, nmapFull, nmapServices, mergePorts } from '../tools/nmap';
 import { nikto } from '../tools/nikto';
 import { gobuster } from '../tools/gobuster';
 import { enum4linux } from '../tools/enum4linux';
+import { searchsploit } from '../tools/searchsploit';
+import { whatweb } from '../tools/whatweb';
+import { sqlmap } from '../tools/sqlmap';
 import { createSession, saveSession, generateSummary } from '../session';
 import type { Port } from '../types';
 
@@ -52,11 +55,15 @@ export async function runRecon(target: string, machineName: string): Promise<voi
   for (const port of web) {
     tasks.push(nikto(target, port, session.dir));
     tasks.push(gobuster(target, port, session.dir));
+    tasks.push(whatweb(target, port, session.dir));
+    tasks.push(sqlmap(target, port, session.dir));
   }
 
   if (smb.length > 0) {
     tasks.push(enum4linux(target, session.dir));
   }
+
+  tasks.push(searchsploit(session.ports, session.dir));
 
   await Promise.all(tasks);
 

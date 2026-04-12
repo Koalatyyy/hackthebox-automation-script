@@ -26,7 +26,7 @@ Runs a 4-phase pipeline:
 1. Quick nmap scan (fast port discovery)
 2. Full nmap scan (all 65535 ports)
 3. Service/script scan on discovered ports
-4. Parallel service enumeration — nikto + gobuster (web), enum4linux (SMB)
+4. Parallel service enumeration — nikto + gobuster + whatweb + sqlmap (web), enum4linux (SMB), searchsploit (all ports)
 
 Output lands in `sessions/<machine>-<timestamp>/`.
 
@@ -41,6 +41,49 @@ ctf vpn disconnect
 ctf vpn status
 ```
 
+## Tools
+
+All tools are invoked automatically by `ctf recon`. To run them manually via WSL:
+
+**nmap** — port scanning
+```bash
+wsl -- nmap -T4 -F 10.10.10.1                                          # quick
+wsl -- nmap -T4 -p- 10.10.10.1                                         # full
+wsl -- nmap -sV -sC -p 22,80,443 10.10.10.1                            # service/script
+```
+
+**nikto** — web vulnerability scanner
+```bash
+wsl -- nikto -h 10.10.10.1 -p 80 -output nikto.txt
+wsl -- nikto -h 10.10.10.1 -p 443 -ssl -output nikto-443.txt
+```
+
+**gobuster** — directory brute-force
+```bash
+wsl -- gobuster dir -u http://10.10.10.1:80 -w /usr/share/seclists/Discovery/Web-Content/common.txt -o gobuster.txt -t 50 --no-error
+```
+
+**whatweb** — web technology fingerprinting
+```bash
+wsl -- whatweb -v -a 3 http://10.10.10.1:80 --log-brief whatweb.txt
+```
+
+**sqlmap** — SQL injection scanner
+```bash
+wsl -- sqlmap -u http://10.10.10.1:80 --batch --crawl=2 --level=2 --risk=1 --output-dir ./sqlmap-out
+```
+
+**enum4linux** — SMB enumeration
+```bash
+wsl -- enum4linux -a 10.10.10.1
+```
+
+**searchsploit** — exploit database lookup
+```bash
+wsl -- searchsploit --json "Apache 2.4"
+wsl -- searchsploit --json "OpenSSH 7.4"
+```
+
 ## Architecture
 
 ```
@@ -53,6 +96,9 @@ src/
     nikto.ts            # web vulnerability scanner
     gobuster.ts         # directory brute-force
     enum4linux.ts       # SMB enumeration
+    whatweb.ts          # web technology fingerprinting
+    sqlmap.ts           # SQL injection scanner
+    searchsploit.ts     # exploit database search by service/version
     vpn.ts              # OpenVPN connect/disconnect/download/status
   session/index.ts      # session creation, file management, summary
   platforms/htb.ts      # HackTheBox API (VPN servers, ovpn download)
@@ -63,7 +109,7 @@ sessions/               # runtime output (gitignored)
 ## Requirements
 
 - Node.js 20+
-- WSL with: `nmap`, `nikto`, `gobuster`, `enum4linux`, `openvpn`
+- WSL with: `nmap`, `nikto`, `gobuster`, `enum4linux`, `openvpn`, `whatweb`, `sqlmap`, `exploitdb` (searchsploit)
 - gobuster wordlist: `/usr/share/seclists/Discovery/Web-Content/common.txt`
 
 ## WSL Sudoers
