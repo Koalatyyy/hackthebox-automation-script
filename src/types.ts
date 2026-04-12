@@ -12,6 +12,7 @@ export interface Session {
   target: string;
   machineName: string;
   startTime: string;
+  endTime?: string;
   dir: string;
   ports: Port[];
 }

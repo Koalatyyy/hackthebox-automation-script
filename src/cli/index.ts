@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { runRecon } from '../pipelines/recon';
+import { runPwn } from '../pipelines/pwn';
 import { vpnConnect, vpnDisconnect, vpnStatus, vpnDownload } from '../tools/vpn';
 import { nikto } from '../tools/nikto';
 import { gobuster } from '../tools/gobuster';
@@ -123,6 +124,13 @@ program
   .action(async (query: string[], opts: { out: string }) => {
     const port = { number: 0, protocol: 'tcp' as const, state: 'open' as const, service: query.join(' '), product: query[0], version: query.slice(1).join(' ') || undefined };
     await searchsploit([port], opts.out);
+  });
+
+program
+  .command('pwn <machine>')
+  .description('Full auto: VPN → spawn machine → recon (requires HTB_API_KEY)')
+  .action(async (machine: string) => {
+    await runPwn(machine);
   });
 
 program.parse();
