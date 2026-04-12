@@ -25,15 +25,29 @@ export async function runPwn(machineName: string): Promise<void> {
 
   // 2. Find machine
   console.log(`[pwn] Step 2/4: Searching for "${machineName}"...`);
-  const results = await searchMachine(machineName);
-  if (results.length === 0) throw new Error(`No machine found matching "${machineName}"`);
-
-  const machine = results.find((m) => m.name.toLowerCase() === machineName.toLowerCase()) ?? results[0];
+  const machine = await searchMachine(machineName);
   console.log(`[pwn] Found: ${machine.name} (ID ${machine.id}, ${machine.difficulty}${machine.retired ? ', retired' : ''})`);
+
+  if (machine.retired) {
+    console.warn('[pwn] Warning: this is a retired machine and requires a VIP/VIP+ subscription to spawn.');
+    const { confirm } = await import('../tools/prompt');
+    const yes = await confirm('[pwn] Continue anyway?');
+    if (!yes) process.exit(0);
+  }
 
   // 3. Spawn
   console.log('[pwn] Step 3/4: Spawning machine...');
-  await spawnMachine(machine.id);
+  try {
+    await spawnMachine(machine.id);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('non-free machine')) {
+      console.error('[pwn] Cannot spawn retired machine on a free server. Upgrade to VIP at app.hackthebox.com.');
+    } else {
+      console.error(`[pwn] Spawn failed: ${msg}`);
+    }
+    process.exit(1);
+  }
 
   // 4. Wait for IP then recon
   const ip = await waitForIp(machine.id);
