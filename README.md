@@ -10,7 +10,15 @@ npm run build
 npm link   # makes `ctf` available globally
 ```
 
-Set `HTB_API_KEY` in your environment to use `ctf vpn download`.
+To use `ctf vpn download`, set your HTB API key:
+1. Go to `app.hackthebox.com` > Profile > Settings > App Tokens
+2. Create a new API token and copy it
+3. Add it to a `.env` file in the project root (copy `.env.example`):
+
+```bash
+cp .env.example .env
+# then edit .env and paste your token after HTB_API_KEY=
+```
 
 ## Usage
 
@@ -33,14 +41,13 @@ Output lands in `sessions/<machine-name>-<timestamp>/`.
 ```bash
 ctf vpn connect                      # auto-detects .ovpn in cwd or ~/Downloads
 ctf vpn connect <ovpn-file>          # explicit file
-ctf vpn download                     # download config via HTB API (lists servers)
-ctf vpn download -s <server-id>      # download specific server
+ctf vpn download -s <server-id>      # download config by server ID (requires HTB_API_KEY)
 ctf vpn download -s <id> --connect   # download and connect in one step
 ctf vpn disconnect
 ctf vpn status
 ```
 
-Requires `HTB_API_KEY` in environment for `ctf vpn download`.
+To get your `.ovpn` file manually: `app.hackthebox.com` > **Connect to HTB** (top right) > OpenVPN > select server > **Download VPN**.
 
 ### Tools
 

@@ -33,9 +33,10 @@ function loadApiKey(): string {
   process.exit(1);
 }
 
-async function htbGet(endpoint: string, baseUrl = BASE_URL): Promise<unknown> {
+async function htbRequest(method: string, endpoint: string, baseUrl = BASE_URL): Promise<unknown> {
   const apiKey = loadApiKey();
   const res = await fetch(`${baseUrl}${endpoint}`, {
+    method,
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: 'application/json',
@@ -43,10 +44,14 @@ async function htbGet(endpoint: string, baseUrl = BASE_URL): Promise<unknown> {
   });
 
   if (!res.ok) {
-    throw new Error(`HTB API ${baseUrl}${endpoint} returned ${res.status}: ${await res.text()}`);
+    throw new Error(`HTB API ${method} ${baseUrl}${endpoint} returned ${res.status}: ${await res.text()}`);
   }
 
   return res.json();
+}
+
+async function htbGet(endpoint: string, baseUrl = BASE_URL): Promise<unknown> {
+  return htbRequest('GET', endpoint, baseUrl);
 }
 
 async function htbGetBinary(baseUrl: string, endpoint: string): Promise<Buffer> {
@@ -62,29 +67,22 @@ async function htbGetBinary(baseUrl: string, endpoint: string): Promise<Buffer> 
   return Buffer.from(await res.arrayBuffer());
 }
 
-// Try known candidate paths for server listing across both subdomains.
-// Update CANDIDATE_PATHS once the real endpoint is confirmed via DevTools.
-const SERVER_LIST_CANDIDATES = [
-  { base: LABS_URL, path: '/access/servers' },
-  { base: LABS_URL, path: '/lab/list' },
-  { base: BASE_URL, path: '/access/servers' },
-  { base: BASE_URL, path: '/lab/list' },
+// Documented server IDs from https://github.com/D3vil0p3r/HackTheBox-API
+const KNOWN_SERVERS: VpnServer[] = [
+  { id: 1,   friendly_name: 'EU Free 1',          location: 'EU', current_clients: 0, assigned: false },
+  { id: 201, friendly_name: 'EU Free 2',          location: 'EU', current_clients: 0, assigned: false },
+  { id: 253, friendly_name: 'EU Free 3',          location: 'EU', current_clients: 0, assigned: false },
+  { id: 113, friendly_name: 'US Free 1',          location: 'US', current_clients: 0, assigned: false },
+  { id: 202, friendly_name: 'US Free 2',          location: 'US', current_clients: 0, assigned: false },
+  { id: 254, friendly_name: 'US Free 3',          location: 'US', current_clients: 0, assigned: false },
+  { id: 177, friendly_name: 'AU Free 1',          location: 'AU', current_clients: 0, assigned: false },
+  { id: 251, friendly_name: 'SG Free 1',          location: 'SG', current_clients: 0, assigned: false },
+  { id: 412, friendly_name: 'EU Starting Point 1',location: 'EU', current_clients: 0, assigned: false },
+  { id: 414, friendly_name: 'US Starting Point 1',location: 'US', current_clients: 0, assigned: false },
 ];
 
 export async function getVpnServers(): Promise<VpnServer[]> {
-  for (const { base, path } of SERVER_LIST_CANDIDATES) {
-    try {
-      const data = await htbGet(path, base) as { data?: VpnServer[] } | VpnServer[];
-      const servers = Array.isArray(data) ? data : (data as { data?: VpnServer[] }).data ?? [];
-      if (servers.length > 0) {
-        console.log(`[htb] Server list from: ${base}${path}`);
-        return servers;
-      }
-    } catch {
-      // try next candidate
-    }
-  }
-  return [];
+  return KNOWN_SERVERS;
 }
 
 export async function getConnectionStatus(): Promise<ConnectionStatus> {
@@ -99,9 +97,12 @@ export async function getConnectionStatus(): Promise<ConnectionStatus> {
   return { status: 'unknown' };
 }
 
-// GET https://labs.hackthebox.com/api/v4/access/ovpnfile/{serverId}/{unknown}/{unknown}
-// Confirmed endpoint. The trailing 0/1 params are unknown - default works for standard lab access.
+async function switchServer(serverId: number): Promise<void> {
+  await htbRequest('POST', `/connections/servers/switch/${serverId}`, LABS_URL);
+}
+
 export async function downloadOvpn(serverId: number, outPath: string): Promise<void> {
-  const buf = await htbGetBinary(LABS_URL, `/access/ovpnfile/${serverId}/0/1`);
+  await switchServer(serverId);
+  const buf = await htbGetBinary(LABS_URL, `/access/ovpnfile/${serverId}/0`);
   fs.writeFileSync(outPath, buf);
 }
