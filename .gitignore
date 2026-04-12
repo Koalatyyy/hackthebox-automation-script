@@ -27,3 +27,9 @@ build/
 # Misc
 .DS_Store
 *.log
+
+# CTF sessions (scan output, loot)
+sessions/
+
+# VPN runtime state
+.vpn-state.json
