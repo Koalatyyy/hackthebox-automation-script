@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { Command } from 'commander';
 import { runRecon } from '../pipelines/recon';
 import { runPwn } from '../pipelines/pwn';
