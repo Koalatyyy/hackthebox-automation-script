@@ -10,6 +10,7 @@ import { whatweb } from '../tools/whatweb';
 import { sqlmap } from '../tools/sqlmap';
 import { enum4linux } from '../tools/enum4linux';
 import { searchsploit } from '../tools/searchsploit';
+import { runSetup } from '../tools/setup';
 import type { Port } from '../types';
 
 function makePort(portNum: number, ssl: boolean): Port {
@@ -131,22 +132,31 @@ program
   .command('machines')
   .description('List available HackTheBox machines (requires HTB_API_KEY)')
   .option('--retired', 'List retired machines instead of active (requires VIP)')
+  .option('--free', 'Exclude Release Arena machines (spawnable on free servers)')
   .option('-d, --difficulty <level>', 'Filter by difficulty (Easy, Medium, Hard, Insane)')
   .option('--os <os>', 'Filter by OS (Linux, Windows, etc.)')
-  .action(async (opts: { retired?: boolean; difficulty?: string; os?: string }) => {
-    const machines = await listMachines(opts.retired ?? false);
+  .action(async (opts: { retired?: boolean; free?: boolean; difficulty?: string; os?: string }) => {
+    const machines = await listMachines(opts.retired ?? false, opts.free ?? false);
     const filtered = machines.filter(m => {
       if (opts.difficulty && m.difficulty.toLowerCase() !== opts.difficulty.toLowerCase()) return false;
       if (opts.os && m.os.toLowerCase() !== opts.os.toLowerCase()) return false;
       return true;
     });
     const pad = (s: string, n: number) => s.padEnd(n);
-    console.log(`${pad('ID', 6)}${pad('Name', 24)}${pad('OS', 10)}${pad('Difficulty', 12)}${'Stars'}`);
-    console.log('-'.repeat(58));
+    console.log(`${pad('ID', 6)}${pad('Name', 24)}${pad('OS', 10)}${pad('Difficulty', 12)}${pad('Stars', 8)}Type`);
+    console.log('-'.repeat(66));
     for (const m of filtered) {
-      console.log(`${pad(String(m.id), 6)}${pad(m.name, 24)}${pad(m.os, 10)}${pad(m.difficulty, 12)}${m.stars.toFixed(1)}`);
+      const type = m.isReleaseArena ? 'Release Arena' : 'Free';
+      console.log(`${pad(String(m.id), 6)}${pad(m.name, 24)}${pad(m.os, 10)}${pad(m.difficulty, 12)}${pad(m.stars.toFixed(1), 8)}${type}`);
     }
     console.log(`\n${filtered.length} machine(s) listed`);
+  });
+
+program
+  .command('setup')
+  .description('Check and install required tools (nmap, nikto, gobuster, etc.) via apt')
+  .action(async () => {
+    await runSetup();
   });
 
 program
