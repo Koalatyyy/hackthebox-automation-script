@@ -8,11 +8,14 @@ export async function gobuster(
   target: string,
   port: Port,
   outDir: string,
-  wordlist = DEFAULT_WORDLIST
+  wordlist = DEFAULT_WORDLIST,
+  hostname?: string
 ): Promise<void> {
   const outFile = path.join(outDir, `gobuster-${port.number}.txt`);
   const scheme = port.service === 'https' || port.number === 443 ? 'https' : 'http';
-  const url = `${scheme}://${target}:${port.number}`;
+  const host = hostname ?? target;
+  const isStandardPort = (scheme === 'http' && port.number === 80) || (scheme === 'https' && port.number === 443);
+  const url = isStandardPort ? `${scheme}://${host}` : `${scheme}://${host}:${port.number}`;
 
   console.log(`\n[gobuster] Dir brute-force on ${url}...`);
 
