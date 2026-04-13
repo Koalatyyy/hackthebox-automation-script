@@ -146,21 +146,26 @@ export interface MachineListEntry {
   stars: number;
 }
 
-type MachineListRaw = Array<{ id: number; name: string; os: string; difficulty_text: string; points: number | null; star: string }>;
+type MachineListRaw = Array<{ id: number; name: string; os: string; difficulty_text?: string; difficultyText?: string; points: number | null; star?: string; stars?: string }>;
 
 export async function listMachines(retired = false): Promise<MachineListEntry[]> {
   const endpoint = retired
     ? '/machine/list/retired/paginated'
     : '/machine/paginated';
 
-  const data = await htbGet(endpoint, LABS_URL) as { message: MachineListRaw };
-  return data.message.map(m => ({
+  const data = await htbGet(endpoint, LABS_URL) as Record<string, unknown>;
+  const list = (data.message ?? data.data ?? data.info) as MachineListRaw | undefined;
+  if (!list) {
+    console.error('[htb] Unexpected response shape:', JSON.stringify(data).slice(0, 500));
+    return [];
+  }
+  return list.map(m => ({
     id: m.id,
     name: m.name,
     os: m.os,
-    difficulty: m.difficulty_text,
+    difficulty: m.difficultyText ?? m.difficulty_text ?? 'Unknown',
     points: m.points,
     retired,
-    stars: parseFloat(m.star ?? '0'),
+    stars: parseFloat(m.stars ?? m.star ?? '0'),
   }));
 }
