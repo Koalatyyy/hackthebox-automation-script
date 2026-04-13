@@ -115,12 +115,13 @@ export interface Machine {
   ip: string | null;
   difficulty: string;
   retired: boolean;
+  isReleaseArena: boolean;
 }
 
 export async function searchMachine(name: string): Promise<Machine> {
-  const data = await htbGet(`/machine/profile/${encodeURIComponent(name)}`, LABS_URL) as { info: { id: number; name: string; ip: string | null; difficultyText: string; retired: number } };
+  const data = await htbGet(`/machine/profile/${encodeURIComponent(name)}`, LABS_URL) as { info: { id: number; name: string; ip: string | null; difficultyText: string; retired: number; type?: number } };
   const m = data.info;
-  return { id: m.id, name: m.name, ip: m.ip ?? null, difficulty: m.difficultyText, retired: m.retired === 1 };
+  return { id: m.id, name: m.name, ip: m.ip ?? null, difficulty: m.difficultyText, retired: m.retired === 1, isReleaseArena: m.type === 2 };
 }
 
 export async function spawnMachine(id: number): Promise<void> {
@@ -128,7 +129,7 @@ export async function spawnMachine(id: number): Promise<void> {
 }
 
 export async function getActiveMachine(): Promise<{ id: number; name: string; ip: string } | null> {
-  const data = await htbGet('/machine/active') as { info: { id: number; name: string; ip: string } | null };
+  const data = await htbGet('/machine/active', LABS_URL) as { info: { id: number; name: string; ip: string } | null };
   return data.info ?? null;
 }
 
@@ -144,11 +145,12 @@ export interface MachineListEntry {
   points: number | null;
   retired: boolean;
   stars: number;
+  isReleaseArena: boolean;
 }
 
-type MachineListRaw = Array<{ id: number; name: string; os: string; difficulty_text?: string; difficultyText?: string; points: number | null; star?: string; stars?: string }>;
+type MachineListRaw = Array<{ id: number; name: string; os: string; difficulty_text?: string; difficultyText?: string; points: number | null; star?: string; stars?: string; type?: number }>;
 
-export async function listMachines(retired = false): Promise<MachineListEntry[]> {
+export async function listMachines(retired = false, freeOnly = false): Promise<MachineListEntry[]> {
   const endpoint = retired
     ? '/machine/list/retired/paginated'
     : '/machine/paginated';
@@ -159,7 +161,7 @@ export async function listMachines(retired = false): Promise<MachineListEntry[]>
     console.error('[htb] Unexpected response shape:', JSON.stringify(data).slice(0, 500));
     return [];
   }
-  return list.map(m => ({
+  const entries = list.map(m => ({
     id: m.id,
     name: m.name,
     os: m.os,
@@ -167,5 +169,7 @@ export async function listMachines(retired = false): Promise<MachineListEntry[]>
     points: m.points,
     retired,
     stars: parseFloat(m.stars ?? m.star ?? '0'),
+    isReleaseArena: m.type === 2,
   }));
+  return freeOnly ? entries.filter(m => !m.isReleaseArena) : entries;
 }
