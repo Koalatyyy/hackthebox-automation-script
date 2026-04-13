@@ -1,6 +1,9 @@
 import { spawn } from 'child_process';
 
+const IS_WINDOWS = process.platform === 'win32';
+
 export function toWslPath(winPath: string): string {
+  if (!IS_WINDOWS) return winPath;
   return winPath
     .replace(/\\/g, '/')
     .replace(/^([A-Za-z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`);
@@ -12,9 +15,17 @@ export interface WslResult {
   exitCode: number;
 }
 
+function spawnArgs(args: string[]): { cmd: string; cmdArgs: string[]; opts: object } {
+  if (IS_WINDOWS) {
+    return { cmd: 'wsl.exe', cmdArgs: ['--', ...args], opts: { windowsHide: true } };
+  }
+  return { cmd: args[0], cmdArgs: args.slice(1), opts: {} };
+}
+
 export function wslDetached(args: string[]): void {
-  const proc = spawn('wsl.exe', ['--', ...args], {
-    windowsHide: true,
+  const { cmd, cmdArgs, opts } = spawnArgs(args);
+  const proc = spawn(cmd, cmdArgs, {
+    ...opts,
     detached: true,
     stdio: 'ignore',
   });
@@ -26,7 +37,8 @@ export async function wsl(
   onData?: (chunk: string) => void
 ): Promise<WslResult> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('wsl.exe', ['--', ...args], { windowsHide: true });
+    const { cmd, cmdArgs, opts } = spawnArgs(args);
+    const proc = spawn(cmd, cmdArgs, opts);
     let stdout = '';
     let stderr = '';
 
