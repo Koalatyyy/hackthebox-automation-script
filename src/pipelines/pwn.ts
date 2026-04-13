@@ -37,16 +37,31 @@ export async function runPwn(machineName: string): Promise<void> {
 
   // 3. Spawn
   console.log('[pwn] Step 3/4: Spawning machine...');
-  try {
-    await spawnMachine(machine.id);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('non-free machine')) {
-      console.error('[pwn] Cannot spawn retired machine on a free server. Upgrade to VIP at app.hackthebox.com.');
-    } else {
-      console.error(`[pwn] Spawn failed: ${msg}`);
-    }
+  if (machine.isReleaseArena) {
+    console.error('[pwn] Cannot spawn: this is a Release Arena machine. Connect to a Release Arena VPN server first.');
     process.exit(1);
+  }
+  const already = await getActiveMachine();
+  if (already && already.id === machine.id) {
+    console.log('[pwn] Machine already active, skipping spawn.');
+  } else {
+    try {
+      await spawnMachine(machine.id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('already have an active instance')) {
+        console.log('[pwn] Machine already active, skipping spawn.');
+      } else if (msg.includes('non-free machine')) {
+        console.error('[pwn] Cannot spawn retired machine on a free server. Upgrade to VIP at app.hackthebox.com.');
+        process.exit(1);
+      } else if (msg.includes('Release Arena')) {
+        console.error('[pwn] Cannot spawn: this is a Release Arena machine. Connect to a Release Arena VPN server first.');
+        process.exit(1);
+      } else {
+        console.error(`[pwn] Spawn failed: ${msg}`);
+        process.exit(1);
+      }
+    }
   }
 
   // 4. Wait for IP then recon
