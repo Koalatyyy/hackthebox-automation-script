@@ -1,6 +1,7 @@
 import { vpnConnect } from '../tools/vpn';
 import { searchMachine, spawnMachine, getActiveMachine } from '../platforms/htb';
 import { runRecon } from './recon';
+import { startSocksProxy } from '../tools/wsl';
 
 async function waitForIp(machineId: number, timeoutMs = 120_000): Promise<string> {
   const deadline = Date.now() + timeoutMs;
@@ -19,6 +20,8 @@ async function waitForIp(machineId: number, timeoutMs = 120_000): Promise<string
 }
 
 export async function runPwn(machineName: string): Promise<void> {
+  startSocksProxy();
+
   // 1. VPN
   console.log('[pwn] Step 1/4: VPN');
   await vpnConnect();
