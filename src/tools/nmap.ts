@@ -41,15 +41,17 @@ function parseNmapXml(xml: string): Port[] {
 
 async function runNmap(args: string[], outDir: string, outName: string): Promise<Port[]> {
   const xmlFile = path.join(outDir, `${outName}.xml`);
-  const txtFile = path.join(outDir, `${outName}.txt`);
 
-  await wsl(
-    ['nmap', ...args, '-oX', toWslPath(xmlFile), '-oN', toWslPath(txtFile)],
-    (chunk) => process.stdout.write(chunk)
+  const result = await wsl(
+    ['nmap', ...args, '-oX', '-'],
+    (chunk) => process.stderr.write(chunk)
   );
 
-  if (!fs.existsSync(xmlFile)) return [];
-  return parseNmapXml(fs.readFileSync(xmlFile, 'utf8'));
+  const xml = result.stdout;
+  if (!xml.includes('<nmaprun')) return [];
+
+  fs.writeFileSync(xmlFile, xml);
+  return parseNmapXml(xml);
 }
 
 export async function nmapQuick(target: string, outDir: string): Promise<Port[]> {
