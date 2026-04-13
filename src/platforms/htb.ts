@@ -146,32 +146,21 @@ export interface MachineListEntry {
   stars: number;
 }
 
-export async function listMachines(retired = false): Promise<MachineListEntry[]> {
-  if (retired) {
-    const data = await htbGet('/machine/list/retired/paginated?per_page=100&page=1', LABS_URL) as {
-      data: Array<{ id: number; name: string; os: string; difficultyText: string; points: string | null; stars: string }>;
-    };
-    return data.data.map(m => ({
-      id: m.id,
-      name: m.name,
-      os: m.os,
-      difficulty: m.difficultyText,
-      points: m.points !== null ? Number(m.points) : null,
-      retired: true,
-      stars: parseFloat(m.stars),
-    }));
-  }
+type MachineListRaw = Array<{ id: number; name: string; os: string; difficulty_text: string; points: number | null; star: string }>;
 
-  const data = await htbGet('/machine/list', LABS_URL) as {
-    info: Array<{ id: number; name: string; os: string; difficultyText: string; points: string | null; stars: string }>;
-  };
-  return data.info.map(m => ({
+export async function listMachines(retired = false): Promise<MachineListEntry[]> {
+  const endpoint = retired
+    ? '/machine/list/retired/paginated'
+    : '/machine/paginated';
+
+  const data = await htbGet(endpoint, LABS_URL) as { message: MachineListRaw };
+  return data.message.map(m => ({
     id: m.id,
     name: m.name,
     os: m.os,
-    difficulty: m.difficultyText,
-    points: m.points !== null ? Number(m.points) : null,
-    retired: false,
-    stars: parseFloat(m.stars),
+    difficulty: m.difficulty_text,
+    points: m.points,
+    retired,
+    stars: parseFloat(m.star ?? '0'),
   }));
 }
