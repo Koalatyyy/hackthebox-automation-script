@@ -135,3 +135,43 @@ export async function getActiveMachine(): Promise<{ id: number; name: string; ip
 export async function stopMachine(id: number): Promise<void> {
   await htbRequest('POST', `/machine/stop/${id}`);
 }
+
+export interface MachineListEntry {
+  id: number;
+  name: string;
+  os: string;
+  difficulty: string;
+  points: number | null;
+  retired: boolean;
+  stars: number;
+}
+
+export async function listMachines(retired = false): Promise<MachineListEntry[]> {
+  if (retired) {
+    const data = await htbGet('/machine/list/retired/paginated?per_page=100&page=1', LABS_URL) as {
+      data: Array<{ id: number; name: string; os: string; difficultyText: string; points: string | null; stars: string }>;
+    };
+    return data.data.map(m => ({
+      id: m.id,
+      name: m.name,
+      os: m.os,
+      difficulty: m.difficultyText,
+      points: m.points !== null ? Number(m.points) : null,
+      retired: true,
+      stars: parseFloat(m.stars),
+    }));
+  }
+
+  const data = await htbGet('/machine/list', LABS_URL) as {
+    info: Array<{ id: number; name: string; os: string; difficultyText: string; points: string | null; stars: string }>;
+  };
+  return data.info.map(m => ({
+    id: m.id,
+    name: m.name,
+    os: m.os,
+    difficulty: m.difficultyText,
+    points: m.points !== null ? Number(m.points) : null,
+    retired: false,
+    stars: parseFloat(m.stars),
+  }));
+}
