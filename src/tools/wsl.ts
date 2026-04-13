@@ -55,6 +55,12 @@ export async function wsl(
     });
 
     proc.on('close', (code) => resolve({ stdout, stderr, exitCode: code ?? 0 }));
-    proc.on('error', reject);
+    proc.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') {
+        resolve({ stdout: '', stderr: `tool not found: ${args[0]}`, exitCode: 127 });
+      } else {
+        reject(err);
+      }
+    });
   });
 }
