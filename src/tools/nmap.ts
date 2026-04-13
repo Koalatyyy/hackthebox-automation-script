@@ -74,9 +74,30 @@ export function mergePorts(a: Port[], b: Port[]): Port[] {
   for (const p of [...a, ...b]) {
     const key = `${p.protocol}/${p.number}`;
     const existing = map.get(key);
-    if (!existing || (p.service !== 'unknown' && existing.service === 'unknown')) {
+    if (!existing || (p.service !== 'unknown' && existing.service === 'unknown') || (!existing.product && p.product)) {
       map.set(key, p);
     }
   }
   return [...map.values()].sort((x, y) => x.number - y.number);
+}
+
+export function extractVhosts(xml: string): string[] {
+  const doc = xmlParser.parse(xml);
+  const hosts: unknown[] = doc?.nmaprun?.host ?? [];
+  const found = new Set<string>();
+
+  for (const host of hosts as Record<string, unknown>[]) {
+    const hostPorts = (host?.ports as Record<string, unknown>)?.port as Record<string, unknown>[] | undefined;
+    if (!hostPorts) continue;
+    for (const p of hostPorts) {
+      const scripts = p?.script;
+      const list = Array.isArray(scripts) ? scripts : scripts ? [scripts] : [];
+      for (const s of list as Record<string, string>[]) {
+        const output = s?.['@_output'] ?? '';
+        const m = output.match(/https?:\/\/([a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,})/i);
+        if (m && !/^\d+\.\d+\.\d+\.\d+$/.test(m[1])) found.add(m[1]);
+      }
+    }
+  }
+  return [...found];
 }

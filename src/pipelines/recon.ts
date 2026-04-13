@@ -1,4 +1,6 @@
-import { nmapQuick, nmapFull, nmapServices, mergePorts } from '../tools/nmap';
+import * as fs from 'fs';
+import * as path from 'path';
+import { nmapQuick, nmapFull, nmapServices, mergePorts, extractVhosts } from '../tools/nmap';
 import { nikto } from '../tools/nikto';
 import { gobuster } from '../tools/gobuster';
 import { enum4linux } from '../tools/enum4linux';
@@ -6,12 +8,29 @@ import { searchsploit } from '../tools/searchsploit';
 import { whatweb } from '../tools/whatweb';
 import { sqlmap } from '../tools/sqlmap';
 import { createSession, saveSession, generateSummary } from '../session';
+import { wsl } from '../tools/wsl';
 import type { Port } from '../types';
 
 const WEB_SERVICES = new Set(['http', 'https', 'http-alt', 'http-proxy', 'ssl/http', 'https-alt']);
 const WEB_PORTS = new Set([80, 443, 8080, 8443, 8000, 8888, 3000, 5000, 4443]);
 const SMB_SERVICES = new Set(['microsoft-ds', 'netbios-ssn', 'smb']);
 const SMB_PORTS = new Set([139, 445]);
+
+async function addVhosts(target: string, vhosts: string[]): Promise<void> {
+  for (const host of vhosts) {
+    const { stdout } = await wsl(['grep', '-F', host, '/etc/hosts']);
+    if (stdout.includes(host)) {
+      console.log(`[recon] ${host} already in /etc/hosts`);
+      continue;
+    }
+    const result = await wsl(['bash', '-c', `echo '${target} ${host}' | sudo tee -a /etc/hosts`]);
+    if (result.exitCode === 0) {
+      console.log(`[recon] Added ${target} ${host} to /etc/hosts`);
+    } else {
+      console.warn(`[recon] Could not add ${host} to /etc/hosts — add manually: echo '${target} ${host}' | sudo tee -a /etc/hosts`);
+    }
+  }
+}
 
 function classifyPorts(ports: Port[]) {
   return {
@@ -41,6 +60,14 @@ export async function runRecon(target: string, machineName: string): Promise<voi
   session.ports = mergePorts(allPorts, servicePorts);
   saveSession(session);
 
+  const xmlFile = path.join(session.dir, 'nmap-services.xml');
+  const vhosts = fs.existsSync(xmlFile) ? extractVhosts(fs.readFileSync(xmlFile, 'utf8')) : [];
+  if (vhosts.length > 0) {
+    console.log(`[recon] Detected vhost(s): ${vhosts.join(', ')}`);
+    await addVhosts(target, vhosts);
+  }
+  const primaryHost = vhosts[0];
+
   const { web, smb, ssh, ftp } = classifyPorts(session.ports);
 
   console.log('\n[recon] Services detected:');
@@ -53,10 +80,10 @@ export async function runRecon(target: string, machineName: string): Promise<voi
   const tasks: Promise<void>[] = [];
 
   for (const port of web) {
-    tasks.push(nikto(target, port, session.dir));
-    tasks.push(gobuster(target, port, session.dir));
-    tasks.push(whatweb(target, port, session.dir));
-    tasks.push(sqlmap(target, port, session.dir));
+    tasks.push(nikto(target, port, session.dir, primaryHost));
+    tasks.push(gobuster(target, port, session.dir, undefined, primaryHost));
+    tasks.push(whatweb(target, port, session.dir, primaryHost));
+    tasks.push(sqlmap(target, port, session.dir, primaryHost));
   }
 
   if (smb.length > 0) {
