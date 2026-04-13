@@ -8,7 +8,7 @@ import { searchsploit } from '../tools/searchsploit';
 import { whatweb } from '../tools/whatweb';
 import { sqlmap } from '../tools/sqlmap';
 import { createSession, saveSession, generateSummary } from '../session';
-import { wsl } from '../tools/wsl';
+import { wsl, startSocksProxy } from '../tools/wsl';
 import type { Port } from '../types';
 
 const WEB_SERVICES = new Set(['http', 'https', 'http-alt', 'http-proxy', 'ssl/http', 'https-alt']);
@@ -16,18 +16,36 @@ const WEB_PORTS = new Set([80, 443, 8080, 8443, 8000, 8888, 3000, 5000, 4443]);
 const SMB_SERVICES = new Set(['microsoft-ds', 'netbios-ssn', 'smb']);
 const SMB_PORTS = new Set([139, 445]);
 
+const WIN_HOSTS = '/mnt/c/Windows/System32/drivers/etc/hosts';
+
 async function addVhosts(target: string, vhosts: string[]): Promise<void> {
   for (const host of vhosts) {
+    const entry = `${target} ${host}`;
+
+    // WSL /etc/hosts
     const { stdout } = await wsl(['grep', '-F', host, '/etc/hosts']);
     if (stdout.includes(host)) {
-      console.log(`[recon] ${host} already in /etc/hosts`);
-      continue;
-    }
-    const result = await wsl(['bash', '-c', `echo '${target} ${host}' | sudo tee -a /etc/hosts`]);
-    if (result.exitCode === 0) {
-      console.log(`[recon] Added ${target} ${host} to /etc/hosts`);
+      console.log(`[recon] ${host} already in WSL /etc/hosts`);
     } else {
-      console.warn(`[recon] Could not add ${host} to /etc/hosts — add manually: echo '${target} ${host}' | sudo tee -a /etc/hosts`);
+      const result = await wsl(['bash', '-c', `echo '${entry}' | sudo tee -a /etc/hosts`]);
+      if (result.exitCode === 0) {
+        console.log(`[recon] Added ${entry} to WSL /etc/hosts`);
+      } else {
+        console.warn(`[recon] Could not add to WSL /etc/hosts — add manually: echo '${entry}' | sudo tee -a /etc/hosts`);
+      }
+    }
+
+    // Windows hosts file (required for browser access)
+    const { stdout: winOut } = await wsl(['grep', '-F', host, WIN_HOSTS]);
+    if (winOut.includes(host)) {
+      console.log(`[recon] ${host} already in Windows hosts`);
+    } else {
+      const winResult = await wsl(['bash', '-c', `echo '${entry}' | sudo tee -a ${WIN_HOSTS}`]);
+      if (winResult.exitCode === 0) {
+        console.log(`[recon] Added ${entry} to Windows hosts`);
+      } else {
+        console.warn(`[recon] Could not add to Windows hosts — add manually (as admin): echo '${entry}' >> C:\\Windows\\System32\\drivers\\etc\\hosts`);
+      }
     }
   }
 }
@@ -42,6 +60,7 @@ function classifyPorts(ports: Port[]) {
 }
 
 export async function runRecon(target: string, machineName: string): Promise<void> {
+  startSocksProxy();
   const session = createSession(target, machineName);
   console.log(`\n[recon] Session: ${session.dir}`);
   console.log(`[recon] Target:  ${target}`);
